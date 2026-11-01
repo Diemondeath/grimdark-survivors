@@ -845,12 +845,15 @@ const Game = (() => {
     if (state === STATE.WIN) { drawWorld(w, h); return drawWin(w, h); }
 
     drawWorld(w, h);
-    drawHUD(w, h);
-    Input.draw && 0;
-    Render.drawJoystick(ctx);
-    if (hero) {
-      const cd = heroVar ? Math.max(0, hero.activeCd / heroVar.active.cooldown) : 0;
-      Render.drawAbilityBtn(ctx, cd, hero.activeCd <= 0);
+    if (state === STATE.PLAY || state === STATE.CHOICE || state === STATE.PAUSE || state === STATE.ALTAR) {
+      drawHUD(w, h);
+    }
+    if (state === STATE.PLAY) {
+      Render.drawJoystick(ctx);
+      if (hero) {
+        const cd = heroVar ? Math.max(0, hero.activeCd / heroVar.active.cooldown) : 0;
+        Render.drawAbilityBtn(ctx, cd, hero.activeCd <= 0);
+      }
     }
 
     if (portraitOverlay) drawPortrait(w, h);
