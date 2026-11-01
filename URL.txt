@@ -1,9 +1,0 @@
-https://diemondeath.github.io/grimdark-survivors/
-LOCAL=http://127.0.0.1:8765/
-LOCALTUNNEL=https://better-meals-study.loca.lt
-PORT=8765
-HTTP_PID=30890
-TUNNEL_PID=36805
-CLOUDFLARED_PID=36713
-KEEP_PID=37070
-NOTE=Primary public URL is GitHub Pages (curl-verified index.html). cloudflared quick tunnel cannot dial Cloudflare edge from this sandbox (outbound TCP/UDP 7844 blocked); process left running. localtunnel also running as secondary.

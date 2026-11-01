@@ -1,0 +1,9 @@
+node_modules/
+bin/cloudflared
+bin/
+package.json
+package-lock.json
+URL.txt
+shot_*.png
+*.log
+.DS_Store
