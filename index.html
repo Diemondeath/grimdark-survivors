@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Grimdark Survivors — Чиби 40K</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0f; }
+    #c { display: block; width: 100%; height: 100%; touch-action: none; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <!-- data (Unity-portable plain objects) -->
+  <script src="data/heroes.js"></script>
+  <script src="data/enemies.js"></script>
+  <script src="data/items.js"></script>
+  <script src="data/relics.js"></script>
+  <script src="data/altars.js"></script>
+  <script src="data/floors.js"></script>
+  <!-- engine -->
+  <script src="js/pool.js"></script>
+  <script src="js/spatial.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/iso.js"></script>
+  <script src="js/items.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/game.js"></script>
+  <script>
+    (function () {
+      const c = document.getElementById('c');
+      Game.init(c);
+      // UI taps in capture phase before joystick steals them on menu screens
+      c.addEventListener('pointerdown', function (e) {
+        Game.onPointer(e);
+      }, true);
+      if (/autostart=1/.test(location.search)) {
+        setTimeout(function () { Game._testStart(); }, 200);
+      }
+      window.__GDS = Game;
+      // Escape pause
+      window.addEventListener('keydown', function (e) {
+        if (e.code === 'Escape' || e.code === 'KeyP') {
+          if (Game.state === Game.STATE.PLAY) Game.onPointer({ type: 'pointerdown', offsetX: c.clientWidth - 28, offsetY: 56 });
+          else if (Game.state === Game.STATE.PAUSE) Game.onPointer({ type: 'pointerdown', offsetX: c.clientWidth / 2, offsetY: c.clientHeight - 100 });
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
