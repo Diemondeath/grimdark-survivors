@@ -1385,6 +1385,45 @@ const Game = (() => {
       bossSpawned = true;
       state = STATE.PLAY;
     },
+    _testSpawnChaosShowcase() {
+      if (!hero || !world) { state = STATE.HERO; startRun('ultramarine'); }
+      if (state === STATE.CHOICE) selectChoice(0);
+      // jump to floor 2 visuals without full floor regen if possible
+      floorIdx = 1;
+      const fdFloor = DATA_FLOORS[floorIdx];
+      const pal = heroVar.palette.floor[floorIdx + 1];
+      if (pal) world.palette = pal;
+      waveT = 1e9;
+      xp = 0; xpToNext = 99999;
+      enemies.clear();
+      ebullets.clear();
+      bullets.clear();
+      const fd = DATA_ENEMIES.floors[2];
+      const cx = hero.x, cy = hero.y;
+      const base = 90;
+      const lineup = [
+        [fd.swarm, -90, base],
+        [fd.charger, -30, base],
+        [fd.elite, 40, base],
+        [fd.boss, 130, base + 10]
+      ];
+      for (const [def, sx, sy] of lineup) {
+        const wx = (sx + sy) / 2;
+        const wy = (sy - sx) / 2;
+        const e = enemies.alloc(def, cx + wx, cy + wy, null);
+        e.facing = -1;
+        e.hp = e.maxHp;
+        e._showcase = true;
+        e.anim = 'walk';
+        e.animT = Math.random() * 2;
+        playAttack(e);
+      }
+      hero.facing = 1;
+      hero.fireCd = 999;
+      hero.burstLeft = 0;
+      bossSpawned = true;
+      state = STATE.PLAY;
+    },
     _testForceBoss() { spawnBoss(); },
     _testEnemySnapshot() {
       return enemies.alive.filter(e => e._alive).map(e => ({

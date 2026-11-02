@@ -39,10 +39,34 @@ window.DATA_ENEMIES = {
     },
     2: {
       faction: 'chaos',
-      swarm: { id: 'chaos_cultist', name: 'Хаосит', hp: 22, speed: 75, damage: 7, radius: 10, xp: 4, color: '#6a2a2a', ai: 'swarm', sprite: null, drawHeight: 36 },
-      charger: { id: 'daemonette', name: 'Демонетка', hp: 38, speed: 160, damage: 14, radius: 11, xp: 10, color: '#c46a9a', ai: 'dash', dashCd: 1.8, sprite: null, drawHeight: 42 },
-      elite: { id: 'chaos_marine', name: 'Космодесантник Хаоса', hp: 200, speed: 50, damage: 16, radius: 16, xp: 40, color: '#4a1010', ai: 'shooter', shootCd: 1.4, isElite: true, sprite: null, drawHeight: 56 },
-      boss: { id: 'chaos_lord', name: 'Лорд Хаоса', hp: 2800, speed: 65, damage: 26, radius: 26, xp: 250, color: '#3a0808', ai: 'boss_lord', isBoss: true, sprite: null, drawHeight: 90 }
+      // chaos_cultist = small melee knife swarm
+      swarm: {
+        id: 'chaos_cultist', name: 'Хаосит',
+        hp: 22, speed: 78, damage: 7, radius: 10, xp: 4, color: '#6a2a2a',
+        ai: 'swarm',
+        sprite: 'chaos_cultist', drawHeight: 40, scale: 1
+      },
+      // traitor = medium ranged
+      charger: {
+        id: 'traitor', name: 'Ренегат',
+        hp: 42, speed: 95, damage: 11, radius: 12, xp: 10, color: '#8a3030',
+        ai: 'shooter', shootCd: 1.5,
+        sprite: 'traitor', drawHeight: 56, scale: 1
+      },
+      // possessed = large melee
+      elite: {
+        id: 'possessed', name: 'Одержимый',
+        hp: 210, speed: 52, damage: 18, radius: 18, xp: 42, color: '#4a1010',
+        ai: 'tank', isElite: true,
+        sprite: 'possessed', drawHeight: 80, scale: 1
+      },
+      // daemon_prince = huge boss
+      boss: {
+        id: 'daemon_prince', name: 'Демон-принц',
+        hp: 2800, speed: 65, damage: 26, radius: 34, xp: 250, color: '#3a0808',
+        ai: 'boss_lord', isBoss: true,
+        sprite: 'daemon_prince', drawHeight: 128, scale: 1
+      }
     },
     3: {
       faction: 'tyranid',
@@ -58,7 +82,7 @@ window.DATA_ENEMIES = {
 (function bindEnemySprites() {
   const packs = window.DATA_SPRITES || {};
   const roleFallback = { swarm: 'cultist', charger: 'hybrid', elite: 'brute', boss: 'patriarch' };
-  for (const floor of Object.values(DATA_ENEMIES.floors)) {
+  for (const floor of Object.values(window.DATA_ENEMIES.floors)) {
     for (const key of ['swarm', 'charger', 'elite', 'boss']) {
       const def = floor[key];
       if (!def) continue;
