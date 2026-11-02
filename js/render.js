@@ -91,57 +91,44 @@ const Render = (() => {
     drawDiamond(ctx, p.x, p.y, hw, hh, solid ? pal.ground : shade(pal.ground, 0.85), shade(pal.ground, 0.6));
   }
 
-  /** Chibi Space Marine */
-  function drawMarine(ctx, p, facing, pal, flash, mods, scale) {
-    const s = 1.15 * (scale || 1);
-    ctx.save();
-    ctx.translate(p.x, p.y);
-    if (facing < 0) ctx.scale(-1, 1);
-    // shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.beginPath(); ctx.ellipse(0, 4, 14 * s, 5 * s, 0, 0, Math.PI * 2); ctx.fill();
-    // legs
-    ctx.fillStyle = flash ? '#fff' : pal.armorDark;
-    ctx.fillRect(-7 * s, -2 * s, 5 * s, 10 * s);
-    ctx.fillRect(2 * s, -2 * s, 5 * s, 10 * s);
-    // body
-    ctx.fillStyle = flash ? '#fff' : (mods && mods.paletteShift) || pal.armor;
-    roundRect(ctx, -10 * s, -18 * s, 20 * s, 18 * s, 3 * s);
-    ctx.fill();
-    ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5; ctx.stroke();
-    // pauldrons (big)
-    ctx.fillStyle = flash ? '#fff' : pal.trim;
-    ctx.beginPath(); ctx.ellipse(-12 * s, -14 * s, 8 * s, 6 * s, -0.3, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(12 * s, -14 * s, 8 * s, 6 * s, 0.3, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    // head / helmet (big)
-    ctx.fillStyle = flash ? '#fff' : pal.armor;
-    ctx.beginPath(); ctx.ellipse(0, -28 * s, 12 * s, 13 * s, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#000'; ctx.stroke();
-    // visor
-    ctx.fillStyle = flash ? '#fff' : pal.glow;
-    roundRect(ctx, -8 * s, -30 * s, 16 * s, 5 * s, 2 * s);
-    ctx.fill();
-    // trim crest
-    ctx.fillStyle = pal.trim;
-    ctx.fillRect(-2 * s, -42 * s, 4 * s, 8 * s);
-    // bolter
-    ctx.fillStyle = '#333';
-    roundRect(ctx, 8 * s, -14 * s, 18 * s, 5 * s, 1);
-    ctx.fill();
-    ctx.fillStyle = '#555';
-    ctx.fillRect(22 * s, -16 * s, 6 * s, 4 * s);
-    // halo
-    if (mods && mods.halo) {
-      ctx.strokeStyle = '#ffd700';
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.ellipse(0, -44 * s, 14 * s, 5 * s, 0, 0, Math.PI * 2); ctx.stroke();
+  /** Space Marine from sprite sheet / full art — never procedural body */
+  function drawMarine(ctx, p, facing, pal, flash, mods, scale, animT) {
+    const race = (window.DATA_HEROES && DATA_HEROES.races.space_marine) || {};
+    const sprites = race.sprites || (window.DATA_SPRITES && DATA_SPRITES.marine);
+    const drawH = (race.drawHeight || 52) * (scale || 1);
+    const bob = (mods && mods._moving) ? Math.sin((animT || 0) * 12) * 2 : 0;
+    let ok = false;
+    if (sprites && sprites.anims) {
+      ok = Sprites.drawSheet(ctx, sprites, (mods && mods._anim) || 'idle', animT || 0,
+        p.x, p.y + bob, drawH, facing, flash, true);
+    } else if (sprites) {
+      ok = Sprites.drawFull(ctx, sprites, p.x, p.y + bob, drawH, facing, flash);
     }
-    // fire trail mark
-    if (mods && mods.fireTrail) {
-      ctx.fillStyle = 'rgba(255,100,30,0.5)';
-      ctx.beginPath(); ctx.arc(-4 * s, 6 * s, 6 * s, 0, Math.PI * 2); ctx.fill();
+    if (!ok) {
+      // emergency: still try marine_game path directly
+      ok = Sprites.drawFull(ctx, { full: 'art/marine_game.png', fullSize: [52, 72] },
+        p.x, p.y, drawH, facing, flash);
     }
-    ctx.restore();
+    if (!ok) {
+      console.warn('[Render] marine sprite missing');
+      return;
+    }
+    // mods overlays (halo / fire) on top of sprite
+    if (mods && (mods.halo || mods.fireTrail)) {
+      ctx.save();
+      ctx.translate(p.x, p.y + bob);
+      if (facing < 0) ctx.scale(-1, 1);
+      if (mods.halo) {
+        ctx.strokeStyle = '#ffd700';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.ellipse(0, -drawH - 6, 14, 5, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+      if (mods.fireTrail) {
+        ctx.fillStyle = 'rgba(255,100,30,0.5)';
+        ctx.beginPath(); ctx.arc(-4, 4, 6, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
   }
 
   function roundRect(ctx, x, y, w, h, r) {
@@ -156,46 +143,46 @@ const Render = (() => {
 
   function drawEnemy(ctx, e, cam, scale) {
     const p = W2S(e.x, e.y, cam, scale);
-    const s = (e.radius / 10) * scale;
-    ctx.save();
-    ctx.translate(p.x, p.y);
-    // shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    ctx.beginPath(); ctx.ellipse(0, 3, 10 * s, 4 * s, 0, 0, Math.PI * 2); ctx.fill();
-    const col = e.flash > 0 ? '#fff' : e.color;
-    // body blob chibi
-    ctx.fillStyle = col;
-    ctx.beginPath();
-    ctx.ellipse(0, -6 * s, 9 * s, 8 * s, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#000'; ctx.lineWidth = 1.2; ctx.stroke();
-    // head
-    ctx.beginPath();
-    ctx.ellipse(0, -16 * s, 7 * s, 7 * s, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    // eyes
-    ctx.fillStyle = e.isBoss ? '#f00' : '#ff0';
-    ctx.beginPath(); ctx.arc(-3 * s, -17 * s, 1.5 * s, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(3 * s, -17 * s, 1.5 * s, 0, Math.PI * 2); ctx.fill();
+    const pack = e.sprites || (e.sprite && window.DATA_SPRITES && DATA_SPRITES[e.sprite])
+      || (window.DATA_SPRITES && DATA_SPRITES.cultist);
+    const drawH = (e.drawHeight || (pack && pack.drawHeight) || 40) * (scale || 1) * (e.scale || 1);
+    const facing = e.facing == null ? 1 : e.facing;
+    const anim = e.anim || 'walk';
+    const animT = e.animT || 0;
+    const flash = e.flash > 0;
+    let ok = false;
+    if (pack && pack.anims) {
+      ok = Sprites.drawSheet(ctx, pack, anim, animT, p.x, p.y, drawH, facing, flash,
+        anim !== 'attack' && anim !== 'hit');
+    } else if (pack) {
+      ok = Sprites.drawFull(ctx, pack, p.x, p.y, drawH, facing, flash);
+    }
+    if (!ok) {
+      console.warn('[Render] enemy sprite missing', e.id || e.sprite);
+      return;
+    }
+    // elite cues
     if (e.eliteType === 'shielded' && e.shield > 0) {
+      ctx.save();
       ctx.strokeStyle = 'rgba(100,200,255,0.7)';
       ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(0, -8 * s, 14 * s, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(p.x, p.y - drawH * 0.45, drawH * 0.4, drawH * 0.5, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
     }
     if (e.eliteType === 'burning') {
-      ctx.fillStyle = 'rgba(255,80,20,0.6)';
-      ctx.beginPath(); ctx.arc(0, -20 * s, 5 * s, 0, Math.PI * 2); ctx.fill();
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,80,20,0.55)';
+      ctx.beginPath(); ctx.arc(p.x, p.y - drawH * 0.85, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
     }
-    // hp bar for elites/boss
     if (e.isElite || e.isBoss) {
       const pct = e.hp / e.maxHp;
+      const bw = Math.max(28, drawH * 0.55);
       ctx.fillStyle = '#000';
-      ctx.fillRect(-12 * s, -28 * s, 24 * s, 3);
+      ctx.fillRect(p.x - bw / 2, p.y - drawH - 10, bw, 4);
       ctx.fillStyle = e.isBoss ? '#f44' : '#fa0';
-      ctx.fillRect(-12 * s, -28 * s, 24 * s * pct, 3);
+      ctx.fillRect(p.x - bw / 2, p.y - drawH - 10, bw * pct, 4);
     }
-    ctx.restore();
   }
 
   function drawProjectile(ctx, b, cam, scale) {

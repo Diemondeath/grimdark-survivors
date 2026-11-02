@@ -5,6 +5,8 @@ window.DATA_HEROES = {
       id: 'space_marine',
       name: 'Космический десант',
       proportions: { head: 1.35, body: 0.85, pauldron: 1.4 },
+      sprite: 'marine',
+      drawHeight: 52,
       base: {
         hp: 100, speed: 145, damage: 12, fireRate: 2.2, burst: 3, burstGap: 0.08,
         pickupRange: 80, projectileSpeed: 420, projectileSize: 5
@@ -68,3 +70,13 @@ window.DATA_HEROES = {
     }
   ]
 };
+
+(function bindHeroSprites() {
+  const packs = window.DATA_SPRITES || {};
+  for (const race of Object.values(DATA_HEROES.races)) {
+    if (race.sprite && packs[race.sprite]) {
+      race.sprites = packs[race.sprite];
+      if (race.drawHeight == null) race.drawHeight = packs[race.sprite].drawHeight;
+    }
+  }
+})();

@@ -69,13 +69,24 @@ const Game = (() => {
     e.burnT = 0; e.burnDps = 0;
     e.eliteType = eliteType || null;
     e.shield = 0; e.shieldMax = 0;
+    e.facing = 1;
+    e.anim = 'idle';
+    e.animT = Math.random() * 0.5;
+    e.attackT = 0;
+    e.hitAnimT = 0;
+    e._moved = false;
+    e.sprites = def.sprites || (def.sprite && DATA_SPRITES && DATA_SPRITES[def.sprite]) || null;
+    e.drawHeight = def.drawHeight || (e.sprites && e.sprites.drawHeight) || 40;
+    e.scale = def.scale || 1;
+    e.isElite = !!def.isElite;
+    e.isBoss = !!def.isBoss;
     if (eliteType && DATA_ENEMIES.elites[eliteType]) {
       const el = DATA_ENEMIES.elites[eliteType];
       e.maxHp = e.hp = def.hp * el.hpMul;
       e.speed = def.speed * (el.speedMul || 1);
       if (el.shield) { e.shieldMax = e.maxHp * el.shield; e.shield = e.shieldMax; }
       e.color = el.colorMul;
-      e.isElite = e.isElite || true;
+      e.isElite = true;
     }
     e.hitPlayerCd = 0;
   }
@@ -133,13 +144,15 @@ const Game = (() => {
       x: cx, y: cy, r: 14,
       hp: heroVar.stats.hp + loadout.stats.maxHpAdd,
       maxHp: Math.floor((heroVar.stats.hp + loadout.stats.maxHpAdd) * loadout.stats.maxHpMul),
-      facing: 1, flash: 0,
+      facing: 1, flash: 0, animT: 0, moving: false,
       fireCd: 0, burstLeft: 0, burstCd: 0,
       activeCd: 0, leaping: false, leapT: 0, leapVx: 0, leapVy: 0,
       invuln: 0, speed: heroVar.stats.speed,
       damage: heroVar.stats.damage,
       fireRate: heroVar.stats.fireRate,
-      palette: heroVar.palette
+      palette: heroVar.palette,
+      sprites: (DATA_HEROES.races[heroVar.race] && DATA_HEROES.races[heroVar.race].sprites) || DATA_SPRITES.marine,
+      drawHeight: (DATA_HEROES.races[heroVar.race] && DATA_HEROES.races[heroVar.race].drawHeight) || 52
     };
     hero.hp = hero.maxHp;
     // spawn objective elites later when near / on start
@@ -294,6 +307,8 @@ const Game = (() => {
       hero.x += mv.x * spd * dt;
       hero.y += mv.y * spd * dt;
       if (mv.x) hero.facing = mv.x >= 0 ? 1 : -1;
+      hero.moving = Math.hypot(mv.x, mv.y) > 0.05;
+      hero.animT = (hero.animT || 0) + dt;
       const r = World.resolveCircle(hero.x, hero.y, hero.r, world.obstacles, world);
       hero.x = r.x; hero.y = r.y;
       if (Input.consumeAbility() && hero.activeCd <= 0) {
@@ -567,8 +582,16 @@ const Game = (() => {
       en.shield -= abs; dmg -= abs;
       if (dmg <= 0) { en.flash = 0.08; return; }
     }
-    en.hp -= dmg;
-    en.flash = 0.1;
+    if (en._showcase) {
+      // keep showcase targets alive for screenshots / QA
+      en.hp = Math.max(1, en.hp - dmg * 0.05);
+    } else {
+      en.hp -= dmg;
+    }
+    en.flash = 0.12;
+    en.hitAnimT = 0.28;
+    en.anim = 'hit';
+    en.animT = 0;
     stats.damageDealt += dmg;
     if (showNum) Render.addDmgNum(en.x, en.y - 20, dmg, dmg > 40);
     if (en.hp <= 0) killEnemy(en);
@@ -624,6 +647,33 @@ const Game = (() => {
     }
   }
 
+  function playAttack(e) {
+    e.anim = 'attack';
+    e.animT = 0;
+    const frames = (e.sprites && e.sprites.anims && e.sprites.anims.attack && e.sprites.anims.attack.frames) || 10;
+    const fps = (e.sprites && e.sprites.anims && e.sprites.anims.attack && e.sprites.anims.attack.fps) || 14;
+    e.attackT = frames / fps;
+  }
+
+  function updateEnemyAnim(e, dt, moved) {
+    if (e.hitAnimT > 0) {
+      e.hitAnimT -= dt;
+      e.anim = 'hit';
+      e.animT += dt;
+      if (e.hitAnimT <= 0 && e.attackT <= 0) { e.anim = moved ? 'walk' : 'idle'; e.animT = 0; }
+      return;
+    }
+    if (e.attackT > 0) {
+      e.attackT -= dt;
+      e.anim = 'attack';
+      e.animT += dt;
+      if (e.attackT <= 0) { e.anim = moved ? 'walk' : 'idle'; e.animT = 0; }
+      return;
+    }
+    e.anim = moved ? 'walk' : 'idle';
+    e.animT += dt;
+  }
+
   function updateEnemies(dt) {
     const fd = DATA_ENEMIES.floors[floorIdx + 1];
     for (const e of enemies.alive) {
@@ -639,6 +689,15 @@ const Game = (() => {
       const dx = hero.x - e.x, dy = hero.y - e.y;
       const dist = Math.hypot(dx, dy) || 1;
       let spd = e.speed * (0.85 + 0.15 * aggression);
+      const ox = e.x, oy = e.y;
+
+      if (dx !== 0) e.facing = dx >= 0 ? 1 : -1;
+
+      if (e._showcase) {
+        // freeze chase; keep anim advancing for screenshots
+        updateEnemyAnim(e, dt, e.anim === 'walk' || e.anim === 'attack');
+        continue;
+      }
 
       if (e.ai === 'charge' || e.ai === 'dash') {
         if (e.cd <= 0 && dist < 220) {
@@ -646,6 +705,7 @@ const Game = (() => {
           e.vy = (dy / dist) * spd * 3.2;
           e.cd = e.chargeCd || e.dashCd || 2;
           e.dashT = 0.35;
+          playAttack(e);
         }
         if (e.dashT > 0) {
           e.dashT -= dt;
@@ -655,26 +715,29 @@ const Game = (() => {
           e.y += (dy / dist) * spd * dt;
         }
       } else if (e.ai === 'shooter' || e.ai === 'acid_shooter') {
-        if (dist > 140) {
-          e.x += (dx / dist) * spd * 0.7 * dt;
-          e.y += (dy / dist) * spd * 0.7 * dt;
-        } else if (dist < 100) {
-          e.x -= (dx / dist) * spd * dt;
-          e.y -= (dy / dist) * spd * dt;
+        if (dist > 160) {
+          e.x += (dx / dist) * spd * 0.75 * dt;
+          e.y += (dy / dist) * spd * 0.75 * dt;
+        } else if (dist < 110) {
+          e.x -= (dx / dist) * spd * 0.9 * dt;
+          e.y -= (dy / dist) * spd * 0.9 * dt;
         }
         if (e.cd <= 0) {
           const ang = Math.atan2(dy, dx);
-          const ps = e.ai === 'acid_shooter' ? 180 : 220;
+          const ps = e.ai === 'acid_shooter' ? 180 : 210;
           ebullets.alloc(e.x, e.y, Math.cos(ang) * ps, Math.sin(ang) * ps, e.damage, {
             size: 6, color: e.ai === 'acid_shooter' ? '#6f3' : '#f66', fromPlayer: false
           });
           e.cd = e.shootCd || 1.5;
+          playAttack(e);
         }
+      } else if (e.ai === 'tank') {
+        e.x += (dx / dist) * spd * dt;
+        e.y += (dy / dist) * spd * dt;
       } else if (e.ai && e.ai.startsWith('boss')) {
         e.x += (dx / dist) * spd * dt;
         e.y += (dy / dist) * spd * dt;
         if (e.cd <= 0) {
-          // ring shot
           for (let i = 0; i < 8; i++) {
             const a = (i / 8) * Math.PI * 2 + timer;
             ebullets.alloc(e.x, e.y, Math.cos(a) * 160, Math.sin(a) * 160, e.damage * 0.7, {
@@ -682,9 +745,9 @@ const Game = (() => {
             });
           }
           e.cd = 2.2;
+          playAttack(e);
         }
       } else {
-        // swarm — slight separation
         e.x += (dx / dist) * spd * dt;
         e.y += (dy / dist) * spd * dt;
       }
@@ -692,12 +755,16 @@ const Game = (() => {
       const r = World.resolveCircle(e.x, e.y, e.radius, world.obstacles, world);
       e.x = r.x; e.y = r.y;
 
+      const moved = Math.hypot(e.x - ox, e.y - oy) > 0.4;
+      updateEnemyAnim(e, dt, moved);
+
       // contact damage
       if (e.hitPlayerCd <= 0) {
         const ddx = hero.x - e.x, ddy = hero.y - e.y;
         if (ddx * ddx + ddy * ddy < (hero.r + e.radius) * (hero.r + e.radius)) {
           hurtHero(e.damage);
           e.hitPlayerCd = 0.6;
+          if (e.ai !== 'shooter' && e.ai !== 'acid_shooter') playAttack(e);
         }
       }
     }
@@ -929,7 +996,8 @@ const Game = (() => {
       else if (it.kind === 'bol') Render.drawProjectile(ctx, it.o, cam, scale);
       else if (it.kind === 'hero') {
         const p = Render.W2S(hero.x, hero.y, cam, scale);
-        Render.drawMarine(ctx, p, hero.facing, hero.palette, hero.flash > 0, loadout.mods, scale);
+        const mods = Object.assign({}, loadout.mods, { _moving: hero.moving, _anim: hero.moving ? 'walk' : 'idle' });
+        Render.drawMarine(ctx, p, hero.facing, hero.palette, hero.flash > 0, mods, scale, hero.animT || 0);
       } else if (it.kind === 'shard') {
         const p = Render.W2S(it.o.x, it.o.y, cam, scale);
         ctx.fillStyle = '#c9f';
@@ -1058,7 +1126,7 @@ const Game = (() => {
         ctx.fillText(v.name, x + bw / 2, 200);
         ctx.fillText('Скоро', x + bw / 2, 220);
       } else {
-        Render.drawMarine(ctx, { x: x + bw / 2, y: 160 }, 1, v.palette, false, {}, 1.2);
+        Render.drawMarine(ctx, { x: x + bw / 2, y: 168 }, 1, v.palette, false, {}, 1.35, performance.now()/1000);
         ctx.fillStyle = '#c9a227'; ctx.font = 'bold 13px sans-serif';
         ctx.fillText(v.name, x + bw / 2, 220);
         ctx.fillStyle = '#aaa'; ctx.font = '10px sans-serif';
@@ -1277,6 +1345,53 @@ const Game = (() => {
     STATE,
     // test helpers
     _testStart() { state = STATE.HERO; startRun('ultramarine'); },
+    _testDismissChoice() {
+      if (state === STATE.CHOICE) selectChoice(0);
+    },
+    _testSpawnShowcase() {
+      if (!hero || !world) { state = STATE.HERO; startRun('ultramarine'); }
+      if (state === STATE.CHOICE) selectChoice(0);
+      waveT = 1e9;
+      xp = 0; xpToNext = 99999;
+      enemies.clear();
+      ebullets.clear();
+      bullets.clear();
+      const fd = DATA_ENEMIES.floors[1];
+      const cx = hero.x, cy = hero.y;
+      // horizontal iso lineup below hero: same (x+y), varying (x-y)
+      // screen-x ~ (x-y), screen-y ~ (x+y)
+      const base = 90; // depth below hero
+      const lineup = [
+        [fd.swarm, -90, base],
+        [fd.charger, -30, base],
+        [fd.elite, 40, base],
+        [fd.boss, 130, base + 10]
+      ];
+      for (const [def, sx, sy] of lineup) {
+        // convert screenish offsets to world: sx=(x-y), sy=(x+y)/1 roughly
+        const wx = (sx + sy) / 2;
+        const wy = (sy - sx) / 2;
+        const e = enemies.alloc(def, cx + wx, cy + wy, null);
+        e.facing = -1;
+        e.hp = e.maxHp;
+        e._showcase = true;
+        e.anim = 'walk';
+        e.animT = Math.random() * 2;
+        playAttack(e);
+      }
+      hero.facing = 1;
+      hero.fireCd = 999;
+      hero.burstLeft = 0;
+      bossSpawned = true;
+      state = STATE.PLAY;
+    },
+    _testForceBoss() { spawnBoss(); },
+    _testEnemySnapshot() {
+      return enemies.alive.filter(e => e._alive).map(e => ({
+        id: e.id, anim: e.anim, drawHeight: e.drawHeight, radius: e.radius,
+        hasSprites: !!e.sprites, x: e.x, y: e.y
+      }));
+    },
     _testState: () => state,
     _testHero: () => hero,
     _testKills: () => kills

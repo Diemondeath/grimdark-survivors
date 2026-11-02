@@ -16,6 +16,7 @@
 <body>
   <canvas id="c"></canvas>
   <!-- data (Unity-portable plain objects) -->
+  <script src="data/sprites.js"></script>
   <script src="data/heroes.js"></script>
   <script src="data/enemies.js"></script>
   <script src="data/items.js"></script>
@@ -29,12 +30,14 @@
   <script src="js/input.js"></script>
   <script src="js/iso.js"></script>
   <script src="js/items.js"></script>
+  <script src="js/sprites.js"></script>
   <script src="js/render.js"></script>
   <script src="js/world.js"></script>
   <script src="js/game.js"></script>
   <script>
     (function () {
       const c = document.getElementById('c');
+      Sprites.preload();
       Game.init(c);
       // UI taps in capture phase before joystick steals them on menu screens
       c.addEventListener('pointerdown', function (e) {
